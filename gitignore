@@ -1,0 +1,41 @@
+# --- Terraform artifacts ---
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfplan
+
+# Local overrides (don’t commit)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Secrets/vars (keep an example file tracked instead)
+*.tfvars
+*.tfvars.json
+!*.example.tfvars
+!*.tfvars.example
+
+# Keep the lockfile committed for consistent provider versions
+# (so DON'T ignore terraform.lock.hcl)
+# terraform.lock.hcl
+
+# --- Helm / Kube leftovers (if you generate anything locally) ---
+charts/**/charts/
+charts/**/tmp/
+.kube/
+kubeconfig
+.kubeconfig
+
+# --- Editors/OS junk ---
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+*.log
+
+# --- Terragrunt (if you ever use it) ---
+.terragrunt-cache/
