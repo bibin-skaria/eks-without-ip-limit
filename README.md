@@ -283,26 +283,90 @@ terraform {
 
 ## 🤝 Contributing
 
-We welcome **features**, **bug fixes**, and **quick fixes**.
+We welcome **features**, **bug fixes**, and **quick fixes**. This repo uses a **3-branch flow**:
 
-1. **Fork** the repo  
-2. Create a branch: `feature/<slug>` or `fix/<slug>`  
-3. Run checks locally:
-   - `make fmt` (terraform fmt -recursive)
-   - `make validate` (terraform validate)
-   - `tflint` / `checkov` if available
-4. Commit with clear messages (Conventional Commits appreciated)
-5. Open a **Pull Request** with:
-   - What changed & why
-   - Any version bumps (EKS/add-ons/providers)
-   - Screenshots/logs for infra changes (plan output helpful)
+- **dev** – active development (default target for community PRs)
+- **UAT** – staging for integration testing and pre‑release validation
+- **main** – production, tagged releases only
 
-**Issues:** Please use the templates:
-- **Bug report** – steps to reproduce, expected vs actual
-- **Feature request** – problem statement, suggested approach
-- **Quick fix** – docs, typos, defaults
+### 1) Fork & local setup
+```bash
+# Fork this repo on GitHub first, then clone your fork
+git clone https://github.com/<your-username>/eks-without-ip-limit.git
+cd eks-without-ip-limit
+
+# Point "upstream" to the original repo so you can sync later
+git remote add upstream https://github.com/bibin-skaria/eks-without-ip-limit.git
+git fetch upstream
+```
+
+### 2) Create a topic branch from `dev`
+Use a clear slug and Conventional Commits in your messages.
+```bash
+git checkout -b feature/<short-slug> upstream/dev
+# or: fix/<short-slug>   | docs/<short-slug>   | chore/<short-slug>
+```
+
+### 3) Develop
+- Keep changes focused and small.
+- Update/add examples and docs when needed.
+- Run local checks:
+```bash
+pre-commit install
+make fmt
+terraform -chdir=env/dev validate
+# optional (but encouraged)
+# tflint
+# checkov -d .
+```
+
+### 4) Commit & push
+```bash
+git add -A
+git commit -m "feat(network): add secondary CIDR for pod subnets"
+git push -u origin feature/<short-slug>
+```
+
+### 5) Open a Pull Request
+- **Target branch:** `dev` for all community contributions.
+- Use the PR template. Describe the problem, the approach, and any version bumps.
+- Attach evidence where helpful (e.g., `terraform plan` output, screenshots).
+- CI checks must pass before review.
+
+### 6) Reviews & merge
+- Maintainers will review and request changes if needed.
+- We squash‑merge into `dev` for a clean history.
+- After merge, **sync your fork**:
+```bash
+git fetch upstream
+git checkout dev
+git reset --hard upstream/dev
+git push origin dev --force-with-lease
+```
 
 ---
+
+### Branching & release flow (maintainers)
+- **dev → UAT:** release PR for end‑to‑end testing (may create a `release/x.y.z` branch).
+- **UAT → main:** final approval, tag, and publish.
+```bash
+# example tagging (maintainers)
+git checkout main
+git pull --ff-only
+git tag -a vX.Y.Z -m "release: vX.Y.Z"
+git push origin vX.Y.Z
+```
+- **Hotfixes:** create `hotfix/<slug>` from `main`, PR back to `main`, then **cherry‑pick** to `dev` to keep branches aligned.
+
+---
+
+### Issue types
+Use the built‑in templates when opening issues:
+- **Bug report** – steps to reproduce, expected vs actual
+- **Feature request** – problem statement & proposal
+- **Quick fix** – small improvements (docs, typos, defaults)
+
+Thanks for contributing! 🙌
 
 ## 📜 License
 
