@@ -1,5 +1,7 @@
 # AWS EKS Reference Architecture (Terraform 1.5, Module-based)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16883393.svg)](https://doi.org/10.5281/zenodo.16883393)
+
 This repository contains an opinionated, production-ready **Amazon EKS** architecture built with **Terraform 1.5** using a **module-based** layout.  
 It creates a highly-available Kubernetes control plane and worker nodes across **two Availability Zones**, with segmented **public** and **private** subnets, **NAT Gateways**, **bastion hosts**, and **Elastic Load Balancing (NLB/ALB)** for north–south traffic.
 
@@ -28,7 +30,7 @@ It creates a highly-available Kubernetes control plane and worker nodes across *
 
 - **EKS**
   - Managed control plane (version pinned)
-  - **Managed Node Groups** across both AZs
+  - **Managed Node Groups** across both AZs (**AL2023/Bottlerocket for 1.33+**)
   - Core **add-ons**: VPC CNI, CoreDNS, kube-proxy
   - Optional add-ons: Cluster Autoscaler or Karpenter, EBS/EFS CSI, Metrics Server, Ingress Controller
 
@@ -58,7 +60,7 @@ It creates a highly-available Kubernetes control plane and worker nodes across *
 | **AWS Provider**       | `~> 5.0`                                          | Pin major to 5; supports latest EKS & VPC resources. |
 | **Kubernetes Provider**| `~> 2.0`                                          | For cluster resources after EKS is up. |
 | **Helm Provider**      | `~> 2.0`                                          | For add-ons installed via Helm. |
-| **EKS (Kubernetes)**   | **1.29** (default)                                | Update per EKS support policy when needed. |
+| **EKS (Kubernetes)**   | **1.33** (default)                                | For 1.33+, use AL2023/Bottlerocket node AMIs. |
 | **Core Add-ons**       | VPC CNI / CoreDNS / kube-proxy pinned via vars    | Exact versions set via variables; update safely with plan/apply. |
 
 > If you bump EKS or add-on versions, please update the table above and the variables in `/env/…/` and submit a PR.
@@ -178,7 +180,7 @@ terraform {
 # env/dev/variables.tf (snippets)
 variable "cluster_name"       { type = string  default = "eks-ref" }
 variable "region"             { type = string  default = "ap-south-1" }
-variable "kubernetes_version" { type = string  default = "1.29" } # EKS
+variable "kubernetes_version" { type = string  default = "1.33" } # EKS
 
 # Add-on versions (examples; adjust per EKS release notes)
 variable "addon_versions" {
@@ -368,6 +370,23 @@ Use the built‑in templates when opening issues:
 
 Thanks for contributing! 🙌
 
+## 📖 Citation
+
+If you use this stack in your work, please cite the **v1.33.0** release.
+
+**DOI:** https://doi.org/10.5281/zenodo.16883393
+
+```bibtex
+@software{skaria_eks_without_ip_limit_v1_33_0,
+  author  = {Skaria, Bibin},
+  title   = {EKS Without IP Limit},
+  version = {v1.33.0},
+  year    = {2025},
+  doi     = {10.5281/zenodo.16883393},
+  url     = {https://github.com/bibin-skaria/eks-without-ip-limit}
+}
+```
+
 ## 📜 License
 
 This project is released under the **MIT License** (see `LICENSE`).  
@@ -395,3 +414,32 @@ A: Possible but not recommended. Keep nodes private; expose only through ELB/NLB
 ### Donation
 
 [![Sponsor on Open Collective](https://opencollective.com/eks-without-ip-limit/tiers/backer/badge.svg)](https://opencollective.com/eks-without-ip-limit)
+
+cff-version: 1.2.0
+message: If you use this software, please cite it.
+title: EKS Without IP Limit
+version: v1.33.0
+date-released: 2025-08-15
+authors:
+  - family-names: Skaria
+    given-names: Bibin
+    orcid: "https://orcid.org/0000-0004-8976-8186"
+repository-code: "https://github.com/bibin-skaria/eks-without-ip-limit"
+url: "https://github.com/bibin-skaria/eks-without-ip-limit"
+license: MIT
+doi: 10.5281/zenodo.16883393
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.16883393
+    description: "Version 1.33.0"
+keywords:
+  - AWS
+  - EKS
+  - Kubernetes 1.33
+  - Terraform
+  - Networking
+  - CNI
+abstract: >
+  Terraform-based Amazon EKS reference architecture targeting Kubernetes/EKS 1.33,
+  avoiding pod IP exhaustion via AWS VPC CNI custom networking with prefix delegation
+  or an optional Cilium overlay; module-based with pinned providers.
