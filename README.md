@@ -391,3 +391,7 @@ A: Possible but not recommended. Keep nodes private; expose only through ELB/NLB
 ### Maintainers
 
 - Total Cloud Control — PR reviews & releases
+
+### Donation
+
+[![Sponsor on Open Collective](https://opencollective.com/eks-without-ip-limit/tiers/backer/badge.svg)](https://opencollective.com/eks-without-ip-limit)
