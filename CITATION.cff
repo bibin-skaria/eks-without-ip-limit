@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: If you use this stack, please cite it.
+title: EKS Without IP Limit
+version: v1.33.0
+date-released: 2025-08-15    
+authors:
+  - family-names: Skaria
+    given-names: Bibin
+    orcid: "https://orcid.org/0009-0004-8976-8186"
+repository-code: "https://github.com/bibin-skaria/eks-without-ip-limit"
+license: MIT
+keywords:
+  - AWS
+  - EKS
+  - Kubernetes 1.33
+  - Terraform
+  - Networking
+  - CNI
+abstract: >
+  Terraform-based Amazon EKS reference architecture targeting Kubernetes/EKS 1.33,
+  avoiding pod IP exhaustion via AWS VPC CNI custom networking + prefix delegation
+  or an optional Cilium overlay; module-based with pinned providers.
+doi: 10.5281/zenodo.16883393
