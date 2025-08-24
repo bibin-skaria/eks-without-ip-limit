@@ -36,6 +36,8 @@ kubeconfig
 .DS_Store
 Thumbs.db
 *.log
+CLAUDE.md
+docs/diagrams/.DS_Store
 
 # --- Terragrunt (if you ever use it) ---
 .terragrunt-cache/
