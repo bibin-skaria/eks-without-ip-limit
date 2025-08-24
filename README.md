@@ -23,8 +23,8 @@ It creates a highly-available Kubernetes control plane and worker nodes across *
   - **Internet Gateway** and **NAT Gateways** (1 per AZ)
 
 - **Access & Security**
-  - **Bastion host** in each AZ (public subnet, locked by SG / optional SSM)
-  - **Security Groups** for control plane ↔ nodes, load balancers, bastion
+  - **Direct EKS API access** with configurable public/private endpoint access
+  - **Security Groups** for control plane ↔ nodes and load balancers
   - **IRSA** (IAM Roles for Service Accounts) for add-ons
   - **KMS** (optional) for secret encryption at rest
 
@@ -75,8 +75,7 @@ It creates a highly-available Kubernetes control plane and worker nodes across *
 │   ├── network/          # VPC, subnets, IGW, NAT, route tables
 │   ├── security/         # IAM, IRSA, KMS (optional), security groups
 │   ├── eks/              # EKS cluster, node groups, auth config
-│   ├── addons/           # VPC CNI, CoreDNS, kube-proxy, CSI, autoscaling, ingress
-│   └── bastion/          # Bastion hosts + minimal SSM/SSH setup
+│   └── addons/           # VPC CNI, CoreDNS, kube-proxy, CSI, autoscaling, ingress
 ├── env/
 │   ├── dev/
 │   │   ├── main.tf
@@ -101,12 +100,16 @@ It creates a highly-available Kubernetes control plane and worker nodes across *
 
 ## 🔧 Key Implementation Notes
 
-### Pod IP Strategy (no “IP limits”)
-**Default:** AWS VPC CNI with:
-- **Custom networking**: dedicated **pod subnets** (can be secondary CIDR blocks) per AZ via `ENIConfig`.
-- **Prefix delegation**: assign IP prefixes to ENIs (dramatically increases pod density).
+### Pod IP Strategy (no "IP limits")
+**Current Configuration:** AWS VPC CNI with **prefix delegation only**:
+- **Prefix delegation**: Enabled by default - assigns IP prefixes to ENIs, dramatically increasing pod density (110+ pods per t3.small node)
+- **Custom networking**: Disabled by default for stability and simplicity
+- **WARM_PREFIX_TARGET**: Set to 1 for optimal IP utilization
+- **Pod density**: Achieves high pod counts without custom networking complexity
 
-Variables let you switch to **Cilium (overlay)** mode, which allocates pod IPs from a cluster CIDR (e.g., `10.244.0.0/16`) and SNATs via the node—removing dependency on VPC IP inventory.
+**Alternative modes available via variables:**
+- **Custom networking + prefix delegation**: For even higher density with dedicated pod subnets
+- **Cilium overlay**: Pod IPs from cluster CIDR (e.g., `10.244.0.0/16`) with SNAT via nodes
 
 ### High Availability
 - 2× AZ minimum, subnets split per AZ.
@@ -114,10 +117,10 @@ Variables let you switch to **Cilium (overlay)** mode, which allocates pod IPs f
 - Managed Node Groups across AZs.
 
 ### Security
-- **Private nodes** (no public IPs) behind NAT.
-- **IRSA** for least-privileged access to AWS services.
-- Bastion login: either **SSM Session Manager** or SSH with restricted Source IPs.
-- Optional **KMS** envelope encryption for secrets.
+- **Private nodes** (no public IPs) behind NAT Gateway
+- **EKS API endpoint** access controlled via Security Groups and CIDRS
+- **IRSA** for least-privileged access to AWS services
+- Optional **KMS** envelope encryption for secrets
 
 ---
 
@@ -134,30 +137,111 @@ Variables let you switch to **Cilium (overlay)** mode, which allocates pod IPs f
 
 ## ⚙️ Quick Start
 
+### Two-Step Deployment Process
+
+This deployment uses a reliable two-step approach to avoid Terraform lock issues while maintaining Infrastructure as Code principles.
+
+#### Step 1: Deploy Foundation Infrastructure with Terraform
+
 ```bash
-# 1) Clone
-git clone https://github.com/<your-org>/<your-repo>.git
-cd <your-repo>/env/dev
+# 1) Clone the repository
+git clone https://github.com/bibin-skaria/eks-without-ip-limit.git
+cd eks-without-ip-limit/env/dev
 
 # 2) (Optional) Initialize pre-commit hooks
 pre-commit install
 
-# 3) Initialize Terraform
+# 3) Configure AWS credentials and region
+aws configure
+# Ensure your AWS CLI is configured with appropriate credentials
+
+# 4) Review and customize variables (optional)
+# Edit terraform.tfvars to match your requirements
+vim terraform.tfvars
+
+# 5) Initialize Terraform with backend configuration
 terraform init
 
-# 4) Review plan
-terraform plan -out tfplan
-
-# 5) Apply
+# 6) Plan and deploy the foundation infrastructure
+terraform plan -out=tfplan
 terraform apply tfplan
 
-# 6) Update kubeconfig
-aws eks update-kubeconfig --name <cluster_name> --region <aws_region>
-
-# 7) Verify
-kubectl get nodes -o wide
-kubectl -n kube-system get ds aws-node -o yaml | grep -E 'ENABLE_PREFIX_DELEGATION|CUSTOM_NETWORK'
+# This creates:
+# - VPC with public/private subnets across 2 AZs
+# - NAT Gateways and Internet Gateway
+# - EKS cluster (Kubernetes 1.33)
+# - IAM roles and Security Groups
+# - CloudWatch Log Group
 ```
+
+#### Step 2: Deploy Node Group and Addons with AWS CLI
+
+```bash
+# 7) Create node group using Terraform output
+$(terraform output -raw create_node_group_command)
+
+# 8) Create EKS addons with proper prefix delegation configuration
+terraform output -json create_addons_commands | jq -r '.[]' | while read cmd; do
+  echo "Executing: $cmd"
+  eval "$cmd"
+  sleep 10  # Wait between addon creations
+done
+
+# 9) Configure kubectl
+$(terraform output -raw configure_kubectl)
+
+# 10) Wait for nodes to be ready
+echo "Waiting for nodes to be ready..."
+kubectl wait --for=condition=Ready nodes --all --timeout=300s
+
+# 11) Verify cluster and prefix delegation
+kubectl get nodes -o wide
+kubectl -n kube-system get ds aws-node -o yaml | grep -A 1 -E 'ENABLE_PREFIX_DELEGATION|WARM_PREFIX_TARGET'
+
+# 12) Test high pod density
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-density-test
+spec:
+  replicas: 30
+  selector:
+    matchLabels:
+      app: pod-density-test
+  template:
+    metadata:
+      labels:
+        app: pod-density-test
+    spec:
+      containers:
+      - name: pause
+        image: registry.k8s.io/pause:3.9
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+EOF
+
+# 13) Verify pod scheduling
+kubectl get pods -l app=pod-density-test --no-headers | wc -l
+echo "Pods scheduled on single t3.small node (should support 110+ pods with prefix delegation)"
+```
+
+### Why Two Steps?
+
+1. **Terraform Reliability**: Terraform handles the foundational infrastructure (VPC, EKS cluster, IAM) reliably
+2. **AWS CLI for Complex Resources**: Node groups and addons with specific configurations are created via AWS CLI to avoid state lock issues
+3. **Prefix Delegation**: Ensures VPC CNI is properly configured with `ENABLE_PREFIX_DELEGATION=true` and `WARM_PREFIX_TARGET=1`
+4. **Reproducible**: All commands are generated by Terraform outputs, maintaining Infrastructure as Code principles
+
+### Important Notes
+
+- **Foundation Infrastructure**: Terraform manages VPC, EKS cluster, IAM roles, and security groups
+- **Node Group & Addons**: Created via AWS CLI commands generated by Terraform outputs
+- **Prefix Delegation**: Automatically configured for high pod density (110+ pods per t3.small node)
+- **Spot Instances**: Used in dev environment for cost optimization
+- **No Manual Steps**: All commands are generated automatically by Terraform
 
 ---
 
@@ -199,21 +283,29 @@ variable "addon_versions" {
 
 ---
 
-## 🔌 Switching Pod IP Modes
+## 🔌 Pod IP Configuration Modes
 
-**Mode A — AWS VPC CNI (default)**
-- Enable **custom networking** & **prefix delegation** via module variables:
+**Mode A — Prefix Delegation Only (default, recommended)**
+- Simple configuration with maximum compatibility
+- Set `enable_prefix_delegation = true` (default in dev environment)
+- Set `enable_cni_custom_networking = false` (default)
+- Achieves 110+ pods per t3.small node without custom networking complexity
+- Uses existing VPC subnets for both nodes and pods
+
+**Mode B — Custom Networking + Prefix Delegation (advanced)**
+- Enable both features via module variables:
   - `enable_cni_custom_networking = true`
   - `enable_prefix_delegation = true`
-- Provide per-AZ **pod subnets** (can be secondary CIDRs).
-- The module creates `ENIConfig` objects named after AZs (e.g., `ap-south-1a`).
+- Provide per-AZ **pod subnets** (can be secondary CIDRs)
+- The module creates `ENIConfig` objects named after AZs
+- Highest possible pod density but requires additional subnet planning
 
-**Mode B — Overlay (Cilium)**
+**Mode C — Overlay (Cilium)**
 - Set `enable_cilium_overlay = true`
 - Configure:
   - `cluster_pool_cidr = "10.244.0.0/16"`
   - `tunnel_protocol = "geneve"` (or `vxlan`)
-- Note: you’ll use **CiliumNetworkPolicy** for pod-level policy instead of SG for pods.
+- Note: use **CiliumNetworkPolicy** for pod-level policy instead of Security Groups
 
 ---
 
@@ -229,9 +321,10 @@ variable "addon_versions" {
 
 ## 🔐 IAM & Access
 
-- **IRSA** is enabled by default for add-ons that need AWS access (e.g., EBS CSI).
-- Bastion login: either **SSM Session Manager** or SSH with restricted Source IPs.
-- `aws-auth` configmap managed via Terraform (map roles/users).
+- **IRSA** is enabled by default for add-ons that need AWS access (e.g., EBS CSI)
+- **EKS API endpoint** accessible with kubectl after running `aws eks update-kubeconfig`
+- `aws-auth` configmap managed via Terraform (map roles/users)
+- No bastion hosts required - direct API access through AWS CLI/kubectl
 
 ---
 
