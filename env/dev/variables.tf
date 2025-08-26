@@ -1,7 +1,7 @@
 variable "region" {
   description = "AWS region"
   type        = string
-  default     = "ap-south-1"
+  default     = "us-east-2"
 }
 
 variable "cluster_name" {
@@ -28,7 +28,7 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-# pod_cidr removed - not needed when custom networking is disabled
+
 
 variable "az_count" {
   description = "Number of availability zones"
@@ -77,7 +77,7 @@ variable "addon_versions" {
 variable "node_group_instance_types" {
   description = "List of instance types for the EKS node group"
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.micro"]
 }
 
 variable "node_group_capacity_type" {
