@@ -52,3 +52,13 @@ variable "common_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "cluster_timeouts" {
+  description = "Timeout configuration for EKS cluster operations"
+  type = object({
+    create = optional(string, "30m")
+    delete = optional(string, "20m")
+    update = optional(string, "30m")
+  })
+  default = {}
+}

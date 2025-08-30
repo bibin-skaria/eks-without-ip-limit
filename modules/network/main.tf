@@ -67,6 +67,10 @@ resource "aws_eip" "nat" {
   })
 
   depends_on = [aws_internet_gateway.main]
+  
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_nat_gateway" "main" {
@@ -79,7 +83,14 @@ resource "aws_nat_gateway" "main" {
     Name = "${var.cluster_name}-nat-${local.azs[count.index]}"
   })
 
-  depends_on = [aws_internet_gateway.main]
+  depends_on = [
+    aws_internet_gateway.main,
+    aws_eip.nat
+  ]
+  
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_route_table" "public" {
@@ -108,6 +119,8 @@ resource "aws_route_table" "private" {
   tags = merge(var.common_tags, {
     Name = "${var.cluster_name}-private-rt-${local.azs[count.index]}"
   })
+  
+  depends_on = [aws_nat_gateway.main]
 }
 
 resource "aws_route_table_association" "public" {
