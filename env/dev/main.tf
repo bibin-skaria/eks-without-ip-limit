@@ -1,7 +1,8 @@
 locals {
   common_tags = {
+    Customer    = var.customer_name
     Environment = var.environment
-    Project     = "eks-without-ip-limit"
+    Project     = var.project_name
     ManagedBy   = "terraform"
   }
 }
@@ -26,6 +27,16 @@ module "security" {
   common_tags             = local.common_tags
 }
 
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  cluster_name            = var.cluster_name
+  environment             = var.environment
+  enable_cloudwatch_logs  = var.enable_cloudwatch_logs
+  log_retention_days      = var.log_retention_days
+  common_tags             = local.common_tags
+}
+
 module "eks" {
   source = "../../modules/eks"
 
@@ -39,6 +50,6 @@ module "eks" {
   public_access_cidrs                  = var.public_access_cidrs
   common_tags                          = local.common_tags
 
-  depends_on = [module.network, module.security]
+  depends_on = [module.network, module.security, module.monitoring]
 }
 
