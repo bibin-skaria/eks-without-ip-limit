@@ -23,6 +23,20 @@ resource "aws_eks_cluster" "main" {
 
   enabled_cluster_log_types = var.cluster_log_types
 
+  timeouts {
+    create = try(var.cluster_timeouts.create, "30m")
+    delete = try(var.cluster_timeouts.delete, "20m")
+    update = try(var.cluster_timeouts.update, "30m")
+  }
+
+  lifecycle {
+    ignore_changes = [
+      # Prevent unnecessary updates
+      tags["CreatedBy"],
+      tags["LastModified"]
+    ]
+  }
+
   depends_on = [
     var.cluster_role_arn
   ]

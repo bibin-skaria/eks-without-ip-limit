@@ -22,48 +22,10 @@ variable "cluster_name" {
   default     = "eks-dev-custom"
 }
 
-variable "kubernetes_version" {
-  description = "Kubernetes version"
-  type        = string
-  default     = "1.33"
-}
-
 variable "environment" {
   description = "Environment name"
   type        = string
   default     = "dev"
-}
-
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
-  type        = string
-  default     = "10.0.0.0/16"
-}
-
-# pod_cidr removed - not needed when custom networking is disabled
-
-variable "az_count" {
-  description = "Number of availability zones"
-  type        = number
-  default     = 2
-}
-
-variable "enable_cni_custom_networking" {
-  description = "Enable AWS VPC CNI custom networking"
-  type        = bool
-  default     = true
-}
-
-variable "enable_prefix_delegation" {
-  description = "Enable prefix delegation for increased pod density"
-  type        = bool
-  default     = true
-}
-
-variable "enable_kms_encryption" {
-  description = "Enable KMS encryption for EKS secrets"
-  type        = bool
-  default     = false
 }
 
 variable "enable_ebs_csi" {
@@ -90,52 +52,64 @@ variable "node_group_instance_types" {
   description = "List of instance types for the EKS node group"
   type        = list(string)
   default     = ["t3.medium"]
+  
+  validation {
+    condition = length(var.node_group_instance_types) > 0 && length(var.node_group_instance_types) <= 20
+    error_message = "Must specify between 1 and 20 instance types for node group."
+  }
 }
 
 variable "node_group_capacity_type" {
   description = "Type of capacity associated with the EKS Node Group"
   type        = string
   default     = "ON_DEMAND"
+  
+  validation {
+    condition = contains(["ON_DEMAND", "SPOT"], var.node_group_capacity_type)
+    error_message = "Node group capacity type must be either 'ON_DEMAND' or 'SPOT'."
+  }
 }
 
 variable "node_group_desired_size" {
   description = "Desired number of nodes in the EKS node group"
   type        = number
   default     = 2
+  
+  validation {
+    condition = var.node_group_desired_size >= 0 && var.node_group_desired_size <= 100
+    error_message = "Desired size must be between 0 and 100."
+  }
 }
 
 variable "node_group_max_size" {
   description = "Maximum number of nodes in the EKS node group"
   type        = number
   default     = 4
+  
+  validation {
+    condition = var.node_group_max_size >= 1 && var.node_group_max_size <= 100
+    error_message = "Max size must be between 1 and 100."
+  }
 }
 
 variable "node_group_min_size" {
   description = "Minimum number of nodes in the EKS node group"
   type        = number
   default     = 1
+  
+  validation {
+    condition = var.node_group_min_size >= 0 && var.node_group_min_size <= 100
+    error_message = "Min size must be between 0 and 100."
+  }
 }
 
 variable "node_group_key_name" {
-  description = "EC2 Key Pair name for node SSH access"
+  description = "EC2 Key Pair name for node SSH access (must exist in AWS if provided)"
   type        = string
   default     = null
-}
-
-variable "public_access_cidrs" {
-  description = "CIDR blocks that can access the Amazon EKS public API server endpoint"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-}
-
-variable "enable_cloudwatch_logs" {
-  description = "Enable CloudWatch log group for monitoring"
-  type        = bool
-  default     = true
-}
-
-variable "log_retention_days" {
-  description = "CloudWatch log group retention in days"
-  type        = number
-  default     = 30
+  
+  validation {
+    condition = var.node_group_key_name == null || can(regex("^[a-zA-Z0-9][a-zA-Z0-9_-]*$", var.node_group_key_name))
+    error_message = "Key pair name must contain only alphanumeric characters, underscores, and hyphens, and must start with an alphanumeric character."
+  }
 }
