@@ -47,11 +47,19 @@ This deployment uses a **4-layer approach** that eliminates common Terraform iss
 ### One-Command Deployment
 
 ```bash
+# Deploy development environment
 ./deploy.sh dev deploy
+
+# Deploy UAT environment  
+./deploy.sh uat deploy
+
+# Deploy production environment
+./deploy.sh prod deploy
 ```
 
 ### Manual Layer-by-Layer Deployment
 
+**For Development Environment:**
 ```bash
 # Layer 1: Base Infrastructure (VPC, subnets, security groups)
 cd env/dev/1-base-infrastructure
@@ -78,13 +86,23 @@ kubectl get pods -A
 # Layer 4: Applications (optional)
 cd ../4-applications
 terraform init
-terraform apply -var-file=dev.tfvars
+terraform apply
+```
+
+**For UAT/Production:**
+Replace `dev` with `uat` or `prod` in paths and use `uat.tfvars` or `prod.tfvars` accordingly.
+```bash
+cd env/uat/1-base-infrastructure  # or env/prod/1-base-infrastructure
+terraform apply -var-file=uat.tfvars  # or prod.tfvars
 ```
 
 ### Cleanup
 
 ```bash
-./deploy.sh dev destroy
+# Destroy specific environment
+./deploy.sh dev destroy   # Development
+./deploy.sh uat destroy   # UAT  
+./deploy.sh prod destroy  # Production
 ```
 
 ---
@@ -125,25 +143,35 @@ terraform apply -var-file=dev.tfvars
 
 Each layer has its own `dev.tfvars` file for configuration:
 
-### Layer 1: Base Infrastructure
+### Environment-Specific Configurations
+
+**Development (`dev.tfvars`):**
 ```hcl
-customer_name = "your-company"
-vpc_cidr     = "10.0.0.0/16"
-az_count     = 2
-enable_kms_encryption = false
+infrastructure_name = "eks-dev-custom"
+vpc_cidr           = "10.0.0.0/16"
+az_count           = 2
+node_group_capacity_type = "SPOT"
+node_group_desired_size  = 2
 ```
 
-### Layer 2: EKS Control Plane
+**UAT (`uat.tfvars`):**
 ```hcl
-kubernetes_version  = "1.33"
-public_access_cidrs = ["0.0.0.0/0"]
+infrastructure_name = "eks-uat-custom"  
+vpc_cidr           = "10.1.0.0/16"
+az_count           = 2
+node_group_capacity_type = "SPOT"
+node_group_desired_size  = 2
 ```
 
-### Layer 3: EKS Data Plane
+**Production (`prod.tfvars`):**
 ```hcl
-node_group_instance_types = ["t3.small"]
-node_group_capacity_type  = "SPOT"
-node_group_desired_size   = 2
+infrastructure_name = "eks-prod-custom"
+vpc_cidr           = "10.2.0.0/16"  
+az_count           = 3                    # More AZs for HA
+node_group_capacity_type = "ON_DEMAND"    # Stable instances
+node_group_desired_size  = 3              # Higher baseline
+enable_kms_encryption   = true           # Production security
+log_retention_days      = 90             # Longer retention
 ```
 
 ---
@@ -231,26 +259,28 @@ eks-without-ip-limit/
 │   ├── monitoring/              # CloudWatch, logging
 │   └── addons/                  # EKS addons module
 └── env/
-    └── dev/                     # Development environment
+    ├── dev/                     # Development environment
+    ├── uat/                     # UAT environment  
+    └── prod/                    # Production environment
         ├── 1-base-infrastructure/    # Layer 1: VPC, security, monitoring
         │   ├── main.tf
         │   ├── variables.tf
         │   ├── outputs.tf
         │   ├── backend.tf
-        │   └── dev.tfvars
+        │   └── {env}.tfvars          # dev.tfvars, uat.tfvars, prod.tfvars
         ├── 2-eks-control-plane/      # Layer 2: EKS cluster, IRSA
         │   ├── main.tf
         │   ├── variables.tf
         │   ├── outputs.tf
         │   ├── backend.tf
-        │   └── dev.tfvars
+        │   └── {env}.tfvars
         ├── 3-eks-data-plane/         # Layer 3: Node groups, addons
         │   ├── main.tf
         │   ├── variables.tf
         │   ├── outputs.tf
         │   ├── validation.tf
         │   ├── backend.tf
-        │   └── dev.tfvars
+        │   └── {env}.tfvars
         └── 4-applications/           # Layer 4: Applications (placeholder)
             └── main.tf
 ```
