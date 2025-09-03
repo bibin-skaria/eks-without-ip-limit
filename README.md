@@ -1,6 +1,7 @@
 # AWS EKS Reference Architecture - Layered Terraform Approach
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16883393.svg)](https://doi.org/10.5281/zenodo.16883393)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 This repository provides a **production-ready, layered Amazon EKS** architecture built with **Terraform 1.5+** using a **4-layer deployment approach**. It creates a highly-available Kubernetes cluster with **prefix delegation** enabled to overcome IP limitations, deployed across multiple layers for better reliability and maintainability.
 
@@ -46,8 +47,7 @@ This deployment uses a **4-layer approach** that eliminates common Terraform iss
 ### One-Command Deployment
 
 ```bash
-cd env/dev
-./deploy.sh
+./deploy.sh dev deploy
 ```
 
 ### Manual Layer-by-Layer Deployment
@@ -84,7 +84,7 @@ terraform apply -var-file=dev.tfvars
 ### Cleanup
 
 ```bash
-./deploy.sh cleanup
+./deploy.sh dev destroy
 ```
 
 ---
@@ -222,28 +222,37 @@ terraform show | grep -A5 "resource_name"
 ## 📋 Directory Structure
 
 ```
-env/dev/
-├── deploy.sh                     # Deployment orchestration script
-├── 1-base-infrastructure/        # Layer 1: VPC, security, monitoring
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   ├── backend.tf
-│   └── dev.tfvars
-├── 2-eks-control-plane/          # Layer 2: EKS cluster, IRSA
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   ├── backend.tf
-│   └── dev.tfvars
-├── 3-eks-data-plane/             # Layer 3: Node groups, addons
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   ├── backend.tf
-│   └── dev.tfvars
-└── 4-applications/               # Layer 4: Applications
-    └── main.tf
+eks-without-ip-limit/
+├── deploy.sh                     # Main deployment orchestration script
+├── modules/                      # Reusable Terraform modules
+│   ├── network/                 # VPC, subnets, NAT gateways
+│   ├── security/                # Security groups, IAM roles
+│   ├── eks/                     # EKS cluster module
+│   ├── monitoring/              # CloudWatch, logging
+│   └── addons/                  # EKS addons module
+└── env/
+    └── dev/                     # Development environment
+        ├── 1-base-infrastructure/    # Layer 1: VPC, security, monitoring
+        │   ├── main.tf
+        │   ├── variables.tf
+        │   ├── outputs.tf
+        │   ├── backend.tf
+        │   └── dev.tfvars
+        ├── 2-eks-control-plane/      # Layer 2: EKS cluster, IRSA
+        │   ├── main.tf
+        │   ├── variables.tf
+        │   ├── outputs.tf
+        │   ├── backend.tf
+        │   └── dev.tfvars
+        ├── 3-eks-data-plane/         # Layer 3: Node groups, addons
+        │   ├── main.tf
+        │   ├── variables.tf
+        │   ├── outputs.tf
+        │   ├── validation.tf
+        │   ├── backend.tf
+        │   └── dev.tfvars
+        └── 4-applications/           # Layer 4: Applications (placeholder)
+            └── main.tf
 ```
 
 ---
@@ -252,7 +261,7 @@ env/dev/
 
 1. **Fork** the repository
 2. **Create a feature branch** for your layer changes
-3. **Test** your changes with `./deploy.sh`
+3. **Test** your changes with `./deploy.sh dev deploy`
 4. **Submit a Pull Request** with layer-specific details
 
 ---
@@ -267,7 +276,7 @@ env/dev/
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
 

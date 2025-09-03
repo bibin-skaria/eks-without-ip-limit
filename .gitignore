@@ -13,8 +13,8 @@ override.tf.json
 *_override.tf.json
 
 # Secrets/vars (keep an example file tracked instead)
-*.tfvars
-*.tfvars.json
+
+
 !*.example.tfvars
 !*.tfvars.example
 
